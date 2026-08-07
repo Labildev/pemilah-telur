@@ -350,6 +350,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
     }
   }
 }
+}
 
 long readDistanceCM() {
   digitalWrite(PIN_ULTRASONIC_TRIG, LOW);
@@ -505,8 +506,6 @@ void safeTare() {
 }
 
 // ---------------- SETUP ----------------
-  }
-}
 
 void setup() {
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); // Matikan brownout detector
