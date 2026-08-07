@@ -500,7 +500,7 @@
             statusBadge.style.color = '#d97706';
             statusBadge.style.borderColor = '#fde047';
 
-            ws = new WebSocket('ws://' + ip + '/ws');
+            ws = new WebSocket('ws://' + ip + ':81/');
 
             ws.onopen = function() {
                 isConnected = true;

@@ -33,15 +33,15 @@
 #include "soc/rtc_cntl_reg.h"
 #include "soc/soc.h"
 
-#include <AsyncTCP.h>
+
 #include <WiFi.h>
 
 // Perbesar antrian WebSocket dari default 32 -> 64
 // Harus didefinisikan SEBELUM include ESPAsyncWebServer
-#define WS_MAX_QUEUED_MESSAGES 64
+
 #include <ArduinoJson.h>
 #include <ESP32Servo.h>
-#include <ESPAsyncWebServer.h>
+#include <WebSocketsServer.h>
 #include <HTTPClient.h>
 #include <HX711.h>
 #include <Preferences.h>
@@ -137,8 +137,8 @@ Servo servoJalur1;
 Servo servoJalur2;
 Servo servoJalur3;
 
-AsyncWebServer server(80);
-AsyncWebSocket ws("/ws");
+
+WebSocketsServer webSocket(81);
 
 // ---------------- STATE MACHINE ----------------
 enum SortState {
@@ -190,7 +190,7 @@ void broadcastState(String step, String rawStep, String category,
   if (now - lastBroadcast < BROADCAST_INTERVAL_MS)
     return;
   lastBroadcast = now;
-  ws.cleanupClients();
+  
   if (ws.count() == 0)
     return;
 
@@ -251,7 +251,11 @@ void saveConfigToNVS() {
 void safeTare();
 
 // Handler perintah WebSocket dari dashboard
-void handleWsMessage(uint8_t *data, size_t len) {
+void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
+  if (type == WStype_TEXT) {
+    uint8_t *data = payload;
+    size_t len = length;
+
   StaticJsonDocument<300> cmd;
   DeserializationError err = deserializeJson(cmd, data, len);
   if (err) {
@@ -501,6 +505,9 @@ void safeTare() {
 }
 
 // ---------------- SETUP ----------------
+  }
+}
+
 void setup() {
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); // Matikan brownout detector
 
@@ -597,29 +604,10 @@ void setup() {
   calibrateGasBaseline(); // Kalibrasi baseline udara bersih untuk deteksi gas
                           // relatif
 
-  ws.onEvent([](AsyncWebSocket *serverWs, AsyncWebSocketClient *client,
-                AwsEventType type, void *arg, uint8_t *data, size_t len) {
-    if (type == WS_EVT_CONNECT) {
-      Serial.printf("[WS] Client #%u terhubung dari %s\n", client->id(),
-                    client->remoteIP().toString().c_str());
-    } else if (type == WS_EVT_DISCONNECT) {
-      Serial.printf("[WS] Client #%u terputus\n", client->id());
-    } else if (type == WS_EVT_DATA) {
-      AwsFrameInfo *info = (AwsFrameInfo *)arg;
-      // Hanya proses frame teks yang sudah lengkap
-      if (info->final && info->index == 0 && info->len == len &&
-          info->opcode == WS_TEXT) {
-        handleWsMessage(data, len);
-      }
-    } else if (type == WS_EVT_ERROR) {
-      Serial.printf("[WS] Error client #%u\n", client->id());
-    }
-  });
-  server.addHandler(&ws);
-
-  server.begin();
-  Serial.println("Web server dimulai.");
-
+  webSocket.begin();
+  webSocket.onEvent(webSocketEvent);
+  Serial.println("WebSocket Server dimulai di port 81.");
+  
   currentState = WAIT_EGG_AT_GATE;
   stateTimer = millis();
 }
@@ -630,7 +618,7 @@ void loop() {
     // Reconnect logic
   }
 
-  ws.cleanupClients();
+  
 
   if (manualOverrideMode) {
     // Mode manual: abaikan sensor, hanya layani WebSocket
