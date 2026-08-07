@@ -108,12 +108,8 @@ const char *WIFI_PASSWORD = "cipacantik";
 // URL backend - disimpan di NVS agar bisa diubah dari dashboard tanpa reflash
 // PERHATIAN: ESP32 tidak bisa menggunakan "localhost". Gunakan IP WiFi komputer
 // Anda! Format: http://<IP_KOMPUTER_ANDA>/pemilah-telur/api/sort-result.php
-char BACKEND_URL[128] = "http://192.168.x.x/pemilah-telur/api/sort-result.php";
+char BACKEND_URL[128] = "http://10.41.198.11/pemilah-telur/api/sort-result.php";
 const char *API_KEY = "rahasia123";
-
-// Baseline gas ambient (dikalibrasi saat boot) & delta sensitivitas
-int GAS_BASELINE = 300;   // Default, di-update oleh calibrateGasBaseline() saat setup
-int GAS_DELTA    = 150;   // Selisih dari baseline = "ada gas" (adjustable via NVS/dashboard)
 
 // Baseline gas ambient (dikalibrasi saat boot) & delta sensitivitas
 int GAS_BASELINE = 300;   // Default, di-update oleh calibrateGasBaseline() saat setup
