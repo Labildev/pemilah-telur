@@ -5,6 +5,18 @@ require_once __DIR__ . '/../config/database.php';
 
 $db = getDatabaseConnection();
 
+// ---------------- RESET DATABASE ----------------
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'clear_all') {
+    try {
+        $stmt = $db->prepare("TRUNCATE TABLE egg_sort_results");
+        $stmt->execute();
+        header("Location: history.php");
+        exit;
+    } catch (PDOException $e) {
+        error_log("Database Clear Error: " . $e->getMessage());
+    }
+}
+
 // Ambil input filter
 $categoryFilter = isset($_GET['category']) ? trim(strtolower($_GET['category'])) : '';
 $startDate = isset($_GET['start_date']) ? $_GET['start_date'] : '';
@@ -146,12 +158,19 @@ function buildQueryUri($overrides = []) {
                     <input type="date" name="end_date" id="end_date" class="form-control" value="<?php echo htmlspecialchars($endDate); ?>">
                 </div>
 
-                <div style="display: flex; gap: 8px;">
-                    <button type="submit" class="btn">Filter</button>
-                    <a href="history.php" class="btn btn-secondary">Reset</a>
-                    <a href="<?php echo buildQueryUri(['export' => 'csv']); ?>" class="btn btn-secondary" style="border: 1px solid #059669; color: #059669;">
-                        Export CSV
-                    </a>
+                <div style="display: flex; justify-content: space-between; width: 100%; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 15px;">
+                    <div style="display: flex; gap: 8px;">
+                        <button type="submit" class="btn">Filter</button>
+                        <button type="button" class="btn btn-secondary" onclick="resetFilters()">Reset Filter</button>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <a href="<?php echo buildQueryUri(['export' => 'csv']); ?>" class="btn btn-secondary" style="border: 1px solid #059669; color: #059669;">
+                            Export CSV
+                        </a>
+                        <button type="button" class="btn" style="background-color: #dc2626; border-color: #dc2626; color: white;" onclick="confirmResetDb()">
+                            Reset Riwayat
+                        </button>
+                    </div>
                 </div>
             </form>
 
@@ -223,5 +242,39 @@ function buildQueryUri($overrides = []) {
             <?php endif; ?>
         </div>
     </main>
+
+    <script>
+        function resetFilters() {
+            // Bersihkan form inputs secara instant di DOM
+            const category = document.getElementById('category');
+            if (category) category.selectedIndex = 0;
+            
+            const startDate = document.getElementById('start_date');
+            if (startDate) startDate.value = '';
+            
+            const endDate = document.getElementById('end_date');
+            if (endDate) endDate.value = '';
+            
+            // Redirect ke halaman bersih tanpa query string
+            window.location.href = 'history.php';
+        }
+
+        function confirmResetDb() {
+            if (confirm("Apakah Anda yakin ingin menghapus semua riwayat pemilahan telur? Tindakan ini tidak dapat dibatalkan.")) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = 'history.php';
+                
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'action';
+                input.value = 'clear_all';
+                
+                form.appendChild(input);
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+    </script>
 </body>
 </html>

@@ -1,5 +1,13 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
+<<<<<<< HEAD
+=======
+
+    # Prevent directory listing
+    Options -Indexes
+
+    # Redirect root requests to the public/ folder
+>>>>>>> 4f30178cca7a31db7bede5cd73e507a6c816dfb1
     RewriteCond %{REQUEST_URI} !public/
     RewriteRule ^(.*)$ public/$1 [L]
 </IfModule>

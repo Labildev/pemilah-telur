@@ -62,13 +62,14 @@
 
 // ---------------- KALIBRASI - dimuat dari NVS saat boot ----------------
 float CALIBRATION_FACTOR = -420.0;
-int GAS_THRESHOLD = 1800;
-int EGG_AT_GATE_DISTANCE_CM = 5;
+// GAS_THRESHOLD dihapus - deteksi gas kini menggunakan GAS_BASELINE + GAS_DELTA (relatif terhadap ambient)
+
+int   EGG_AT_GATE_DISTANCE_CM = 5;
 
 // Ambang batas berat (gram)
 float WEIGHT_RINGAN_MAX = 55.0;
 float WEIGHT_SEDANG_MAX = 64.0;
-const float WEIGHT_MIN_DETECT = 5.0;
+const float WEIGHT_MIN_DETECT = 10.0; // Berat minimum telur valid (gram) - di bawah ini = timbangan kosong
 
 // ---------------- SUDUT SERVO - dapat dikalibrasi via web ----------------
 // Semua variabel (bukan const) agar bisa disimpan ke NVS
@@ -84,19 +85,17 @@ int JALUR3_CLOSED_ANGLE = 0;
 int JALUR3_BERAT_ANGLE = 70; // Jalur3 HANYA untuk BERAT
 // BUSUK: tidak pakai servo, telur lurus ke penampungan
 
-// ---------------- WAKTU TUNDA ANTAR TAHAP (ms) - WAJIB DIUJI & DISESUAIKAN
-// ----------------
-const unsigned long T_GATE_OPEN_HOLD =
-    500; // gate terbuka, telur menggelinding lewat
-const unsigned long T_GATE_CLOSE_WAIT = 300; // tunggu gate benar2 tertutup lagi
-const unsigned long T_WEIGHING_SETTLE =
-    1000; // sesuai catatan: stabil +/- 1 detik
-const unsigned long T_PENDORONG_HOLD = 500;
-const unsigned long T_PENDORONG_RETURN = 400;
-const unsigned long T_SORT_GATE_OPEN =
-    700; // waktu flap terbuka sampai telur jatuh
-const unsigned long T_SORT_GATE_CLOSE = 400;
-const unsigned long ULTRASONIC_POLL_MS = 200;
+// ---------------- WAKTU TUNDA ANTAR TAHAP (ms) - WAJIB DIUJI & DISESUAIKAN ----------------
+const unsigned long T_GATE_OPEN_HOLD    = 500;   // gate terbuka, telur menggelinding lewat
+const unsigned long T_GATE_CLOSE_WAIT   = 300;   // tunggu gate benar2 tertutup lagi
+const unsigned long T_WEIGHING_SETTLE   = 1000;  // sesuai catatan: stabil +/- 1 detik
+const unsigned long T_PENDORONG_HOLD    = 500;
+const unsigned long T_PENDORONG_RETURN  = 400;
+const unsigned long T_SORT_GATE_OPEN    = 700;   // waktu flap terbuka sampai telur jatuh
+const unsigned long T_SORT_GATE_CLOSE   = 400;
+const unsigned long ULTRASONIC_POLL_MS      = 200;
+const unsigned long T_ABORT_GATE_REOPEN     = 500;   // Gate buka sebentar saat abort timbangan kosong (ms)
+const unsigned long T_ABORT_RETRY_WAIT      = 15000; // Jeda total siklus ulang timbangan kosong (ms) - adjustable
 
 // ---------------- WIFI ACCESS POINT ----------------
 const char *AP_SSID = "EggSorter_ESP32";
@@ -111,6 +110,10 @@ const char *WIFI_PASSWORD = "cipacantik";
 // Anda! Format: http://<IP_KOMPUTER_ANDA>/pemilah-telur/api/sort-result.php
 char BACKEND_URL[128] = "http://192.168.x.x/pemilah-telur/api/sort-result.php";
 const char *API_KEY = "rahasia123";
+
+// Baseline gas ambient (dikalibrasi saat boot) & delta sensitivitas
+int GAS_BASELINE = 300;   // Default, di-update oleh calibrateGasBaseline() saat setup
+int GAS_DELTA    = 150;   // Selisih dari baseline = "ada gas" (adjustable via NVS/dashboard)
 
 // ---------------- OBJEK GLOBAL ----------------
 HX711 scale;
@@ -136,7 +139,8 @@ enum SortState {
   PUSH_EGG,
   RETURN_PENDORONG,
   OPEN_SORT_GATE,
-  CLOSE_SORT_GATE
+  CLOSE_SORT_GATE,
+  ABORT_RETRY         // Timbangan kosong: buka gate lagi, tunggu, lalu ulang siklus
 };
 
 SortState currentState = WAIT_EGG_AT_GATE;
@@ -263,17 +267,18 @@ void broadcastState(String step, String rawStep, String category,
   doc["scaleStatus"] = scaleEnabled ? "online" : "offline";
   doc["manualMode"] = manualOverrideMode;
   // Config servo & threshold (untuk dashboard kalibrasi)
-  doc["cfg_gate_open"] = GATE_OPEN_ANGLE;
-  doc["cfg_gate_cls"] = GATE_CLOSED_ANGLE;
-  doc["cfg_push"] = PENDORONG_PUSH_ANGLE;
-  doc["cfg_j1_open"] = JALUR1_OPEN_ANGLE;
-  doc["cfg_j2_open"] = JALUR2_OPEN_ANGLE;
-  doc["cfg_j3_berat"] = JALUR3_BERAT_ANGLE;
-  doc["cfg_gas_thr"] = GAS_THRESHOLD;
-  doc["cfg_us_dist"] = EGG_AT_GATE_DISTANCE_CM;
-  doc["cfg_w_ringan"] = WEIGHT_RINGAN_MAX;
-  doc["cfg_w_sedang"] = WEIGHT_SEDANG_MAX;
-  doc["backend_url"] = BACKEND_URL;
+  doc["cfg_gate_open"]    = GATE_OPEN_ANGLE;
+  doc["cfg_gate_cls"]     = GATE_CLOSED_ANGLE;
+  doc["cfg_push"]         = PENDORONG_PUSH_ANGLE;
+  doc["cfg_j1_open"]      = JALUR1_OPEN_ANGLE;
+  doc["cfg_j2_open"]      = JALUR2_OPEN_ANGLE;
+  doc["cfg_j3_berat"]     = JALUR3_BERAT_ANGLE;
+  doc["cfg_gas_delta"]    = GAS_DELTA;
+  doc["gas_baseline"]     = GAS_BASELINE;
+  doc["cfg_us_dist"]      = EGG_AT_GATE_DISTANCE_CM;
+  doc["cfg_w_ringan"]     = WEIGHT_RINGAN_MAX;
+  doc["cfg_w_sedang"]     = WEIGHT_SEDANG_MAX;
+  doc["backend_url"]      = BACKEND_URL;
 
   String json;
   serializeJson(doc, json);
@@ -284,20 +289,25 @@ void broadcastState(String step, String rawStep, String category,
 // Helper: simpan semua config servo & threshold ke NVS
 void saveConfigToNVS() {
   preferences.begin("egg-sorter", false);
-  preferences.putInt("gate_open", GATE_OPEN_ANGLE);
-  preferences.putInt("gate_cls", GATE_CLOSED_ANGLE);
-  preferences.putInt("push_angle", PENDORONG_PUSH_ANGLE);
-  preferences.putInt("j1_open", JALUR1_OPEN_ANGLE);
-  preferences.putInt("j2_open", JALUR2_OPEN_ANGLE);
-  preferences.putInt("j3_berat", JALUR3_BERAT_ANGLE);
-  preferences.putInt("gas_thr", GAS_THRESHOLD);
-  preferences.putInt("us_dist", EGG_AT_GATE_DISTANCE_CM);
-  preferences.putFloat("w_ringan", WEIGHT_RINGAN_MAX);
-  preferences.putFloat("w_sedang", WEIGHT_SEDANG_MAX);
+  preferences.putInt("gate_open",   GATE_OPEN_ANGLE);
+  preferences.putInt("gate_cls",    GATE_CLOSED_ANGLE);
+  preferences.putInt("push_angle",  PENDORONG_PUSH_ANGLE);
+  preferences.putInt("j1_open",     JALUR1_OPEN_ANGLE);
+  preferences.putInt("j2_open",     JALUR2_OPEN_ANGLE);
+  preferences.putInt("j3_berat",    JALUR3_BERAT_ANGLE);
+  preferences.putInt("gas_delta",   GAS_DELTA);
+  preferences.putInt("us_dist",     EGG_AT_GATE_DISTANCE_CM);
+  preferences.putFloat("w_ringan",  WEIGHT_RINGAN_MAX);
+  preferences.putFloat("w_sedang",  WEIGHT_SEDANG_MAX);
   preferences.putString("backend_url", BACKEND_URL);
   preferences.end();
   Serial.println("[NVS] Konfigurasi tersimpan.");
 }
+
+// Forward declaration - diperlukan karena Arduino IDE gagal auto-generate
+// prototype untuk fungsi yang dipanggil dari dalam handleWsMessage
+// (parser Arduino terkacaukan oleh tipe uint8_t* dari ESPAsyncWebServer)
+void safeTare();
 
 // Handler perintah WebSocket dari dashboard
 void handleWsMessage(uint8_t *data, size_t len) {
@@ -358,18 +368,11 @@ void handleWsMessage(uint8_t *data, size_t len) {
     Serial.printf("[WS] save_servo %s=%d\n", key.c_str(), val);
 
   } else if (action == "save_threshold") {
-    // Simpan threshold sensor ke NVS
-    // payload: {action:"save_threshold", key:"gas_thr", value:1800}
     String key = cmd["key"] | "";
-    if (key == "gas_thr") {
-      GAS_THRESHOLD = (int)(cmd["value"] | GAS_THRESHOLD);
-    } else if (key == "us_dist") {
-      EGG_AT_GATE_DISTANCE_CM = (int)(cmd["value"] | EGG_AT_GATE_DISTANCE_CM);
-    } else if (key == "w_ringan") {
-      WEIGHT_RINGAN_MAX = (float)(cmd["value"] | WEIGHT_RINGAN_MAX);
-    } else if (key == "w_sedang") {
-      WEIGHT_SEDANG_MAX = (float)(cmd["value"] | WEIGHT_SEDANG_MAX);
-    }
+    if      (key == "gas_delta")  { GAS_DELTA = (int)(cmd["value"] | GAS_DELTA); }
+    else if (key == "us_dist")    { EGG_AT_GATE_DISTANCE_CM = (int)(cmd["value"] | EGG_AT_GATE_DISTANCE_CM); }
+    else if (key == "w_ringan")   { WEIGHT_RINGAN_MAX = (float)(cmd["value"] | WEIGHT_RINGAN_MAX); }
+    else if (key == "w_sedang")   { WEIGHT_SEDANG_MAX = (float)(cmd["value"] | WEIGHT_SEDANG_MAX); }
     saveConfigToNVS();
     Serial.printf("[WS] save_threshold %s\n", key.c_str());
 
@@ -446,12 +449,9 @@ float readWeightStable() {
   return currentWeight; // Kembalikan berat terakhir jika gagal
 }
 
-String decideCategory(float weight, int gas, String &categoryClass) {
-  // gas dan berat dibaca bersamaan; gas tinggi -> busuk, terlepas dari berat
-  if (gas > GAS_THRESHOLD) {
-    categoryClass = "busuk";
-    return "BUSUK";
-  }
+// Kategorisasi berdasarkan berat saja
+// Gas dicek SEBELUM fungsi ini dipanggil di state DECIDE_CATEGORY
+String decideCategory(float weight, String &categoryClass) {
   if (weight < WEIGHT_RINGAN_MAX) {
     categoryClass = "ringan";
     return "RINGAN";
@@ -514,16 +514,28 @@ bool isHX711Connected() {
   pinMode(PIN_HX711_DT, INPUT_PULLUP);
   pinMode(PIN_HX711_SCK, OUTPUT);
   digitalWrite(PIN_HX711_SCK, LOW);
-  delay(50); // Waktu bagi chip untuk stabil
+  delay(50);
 
   unsigned long start = millis();
-  while (millis() - start < 300) { // Tunggu maksimal 300ms
-    if (digitalRead(PIN_HX711_DT) == LOW) {
-      return true;
-    }
+  while (millis() - start < 300) {
+    if (digitalRead(PIN_HX711_DT) == LOW) return true;
     delay(10);
   }
   return false;
+}
+
+// Kalibrasi baseline gas ambient — dipanggil sekali di setup()
+// Baca 20 sampel udara bersih sebelum alat dioperasikan
+void calibrateGasBaseline() {
+  Serial.println("[GAS] Mengkalibrasi baseline udara bersih (20 sampel x 50ms)...");
+  long sum = 0;
+  for (int i = 0; i < 20; i++) {
+    sum += analogRead(PIN_MQ135_AOUT);
+    delay(50);
+  }
+  GAS_BASELINE = (int)(sum / 20);
+  Serial.printf("[GAS] Baseline = %d ADC | Deteksi gas jika > %d ADC (baseline + delta %d)\n",
+                GAS_BASELINE, GAS_BASELINE + GAS_DELTA, GAS_DELTA);
 }
 
 void safeTare() {
@@ -582,26 +594,24 @@ void setup() {
 
   // 2. Muat SEMUA konfigurasi dari NVS
   preferences.begin("egg-sorter", true);
-  CALIBRATION_FACTOR = preferences.getFloat("cal_factor", CALIBRATION_FACTOR);
-  GATE_OPEN_ANGLE = preferences.getInt("gate_open", GATE_OPEN_ANGLE);
-  GATE_CLOSED_ANGLE = preferences.getInt("gate_cls", GATE_CLOSED_ANGLE);
-  PENDORONG_PUSH_ANGLE = preferences.getInt("push_angle", PENDORONG_PUSH_ANGLE);
-  JALUR1_OPEN_ANGLE = preferences.getInt("j1_open", JALUR1_OPEN_ANGLE);
-  JALUR2_OPEN_ANGLE = preferences.getInt("j2_open", JALUR2_OPEN_ANGLE);
-  JALUR3_BERAT_ANGLE = preferences.getInt("j3_berat", JALUR3_BERAT_ANGLE);
-  GAS_THRESHOLD = preferences.getInt("gas_thr", GAS_THRESHOLD);
-  EGG_AT_GATE_DISTANCE_CM =
-      preferences.getInt("us_dist", EGG_AT_GATE_DISTANCE_CM);
-  WEIGHT_RINGAN_MAX = preferences.getFloat("w_ringan", WEIGHT_RINGAN_MAX);
-  WEIGHT_SEDANG_MAX = preferences.getFloat("w_sedang", WEIGHT_SEDANG_MAX);
+  CALIBRATION_FACTOR      = preferences.getFloat("cal_factor",  CALIBRATION_FACTOR);
+  GATE_OPEN_ANGLE         = preferences.getInt("gate_open",    GATE_OPEN_ANGLE);
+  GATE_CLOSED_ANGLE       = preferences.getInt("gate_cls",     GATE_CLOSED_ANGLE);
+  PENDORONG_PUSH_ANGLE    = preferences.getInt("push_angle",   PENDORONG_PUSH_ANGLE);
+  JALUR1_OPEN_ANGLE       = preferences.getInt("j1_open",      JALUR1_OPEN_ANGLE);
+  JALUR2_OPEN_ANGLE       = preferences.getInt("j2_open",      JALUR2_OPEN_ANGLE);
+  JALUR3_BERAT_ANGLE      = preferences.getInt("j3_berat",     JALUR3_BERAT_ANGLE);
+  GAS_DELTA               = preferences.getInt("gas_delta",    GAS_DELTA);
+  EGG_AT_GATE_DISTANCE_CM = preferences.getInt("us_dist",      EGG_AT_GATE_DISTANCE_CM);
+  WEIGHT_RINGAN_MAX       = preferences.getFloat("w_ringan",   WEIGHT_RINGAN_MAX);
+  WEIGHT_SEDANG_MAX       = preferences.getFloat("w_sedang",   WEIGHT_SEDANG_MAX);
   // Load backend URL - fallback ke nilai default jika belum pernah disimpan
   String savedUrl = preferences.getString("backend_url", String(BACKEND_URL));
   savedUrl.toCharArray(BACKEND_URL, sizeof(BACKEND_URL));
   preferences.end();
-  Serial.printf("[NVS] Cal.factor=%.2f | Gas.thr=%d | US.dist=%d\n",
-                CALIBRATION_FACTOR, GAS_THRESHOLD, EGG_AT_GATE_DISTANCE_CM);
-  Serial.print("[NVS] Backend URL: ");
-  Serial.println(BACKEND_URL);
+  Serial.printf("[NVS] Cal.factor=%.2f | Gas.delta=%d | US.dist=%d\n",
+                CALIBRATION_FACTOR, GAS_DELTA, EGG_AT_GATE_DISTANCE_CM);
+  Serial.print("[NVS] Backend URL: "); Serial.println(BACKEND_URL);
 
   // 3. Inisialisasi sensor timbangan HX711
   Serial.println("[BOOT] Memeriksa koneksi fisik sensor timbangan HX711...");
@@ -645,6 +655,7 @@ void setup() {
 
   pinMode(PIN_MQ135_AOUT, INPUT);
   analogReadResolution(12);
+  calibrateGasBaseline(); // Kalibrasi baseline udara bersih untuk deteksi gas relatif
 
   ws.onEvent([](AsyncWebSocket *serverWs, AsyncWebSocketClient *client,
                 AwsEventType type, void *arg, uint8_t *data, size_t len) {
@@ -716,10 +727,72 @@ void loop() {
     }
     broadcastState("Menunggu telur di gate", "WAIT_EGG_AT_GATE", "-", "idle");
 
-    if (currentDistance != -1 && currentDistance <= EGG_AT_GATE_DISTANCE_CM) {
-      servoGate.write(GATE_OPEN_ANGLE);
-      currentState = OPEN_GATE;
-      stateTimer = millis();
+    case OPEN_GATE: {
+      broadcastState("Gate terbuka, telur menggelinding", "OPEN_GATE", "-", "idle");
+      if (millis() - stateTimer >= T_GATE_OPEN_HOLD) {
+        servoGate.write(GATE_CLOSED_ANGLE);
+        currentState = CLOSE_GATE;
+        stateTimer = millis();
+      }
+      break;
+    }
+
+    case CLOSE_GATE: {
+      broadcastState("Gate menutup kembali", "CLOSE_GATE", "-", "idle");
+      if (millis() - stateTimer >= T_GATE_CLOSE_WAIT) {
+        currentState = WEIGHING_SETTLE;
+        stateTimer = millis();
+      }
+      break;
+    }
+
+    case WEIGHING_SETTLE: {
+      // loadcell & gas dibaca bersamaan selama tahap ini
+      currentWeight = readWeightStable();
+      currentGas = analogRead(PIN_MQ135_AOUT);
+      broadcastState("Menimbang & mengecek gas...", "WEIGHING_SETTLE", "-", "idle");
+
+      if (millis() - stateTimer >= T_WEIGHING_SETTLE) {
+        currentState = DECIDE_CATEGORY;
+        stateTimer = millis();
+      }
+      break;
+    }
+
+    case DECIDE_CATEGORY: {
+      String categoryClass;
+
+      // PRIORITAS 1: Gas override — jika gas terdeteksi, BUSUK meski berat < 10g
+      if (currentGas > (GAS_BASELINE + GAS_DELTA)) {
+        lastCategory  = "BUSUK";
+        categoryClass = "busuk";
+        Serial.printf("[DECIDE] Gas terdeteksi! (%d > %d). Lanjut ke BUSUK meski berat %.1fg.\n",
+                      currentGas, GAS_BASELINE + GAS_DELTA, currentWeight);
+        broadcastState("Gas terdeteksi - BUSUK!", "DECIDE_CATEGORY", lastCategory, categoryClass);
+        servoPendorong.write(PENDORONG_PUSH_ANGLE);
+        currentState = PUSH_EGG;
+        stateTimer   = millis();
+        break;
+      }
+
+      // PRIORITAS 2: Cek berat minimum — timbangan harus ada beban valid
+      if (currentWeight < WEIGHT_MIN_DETECT) {
+        Serial.printf("[DECIDE] Berat terlalu ringan (%.1fg < %.1fg). Timbangan kosong. Abort & retry.\n",
+                      currentWeight, WEIGHT_MIN_DETECT);
+        broadcastState("Timbangan kosong - mengulang...", "ABORT_RETRY", "-", "idle");
+        servoGate.write(GATE_OPEN_ANGLE); // Buka gate lagi, bantu telur yang mungkin nyangkut
+        currentState = ABORT_RETRY;
+        stateTimer   = millis();
+        break;
+      }
+
+      // PRIORITAS 3: Kategorisasi normal berdasarkan berat
+      lastCategory = decideCategory(currentWeight, categoryClass);
+      broadcastState("Kategori ditentukan", "DECIDE_CATEGORY", lastCategory, categoryClass);
+      servoPendorong.write(PENDORONG_PUSH_ANGLE);
+      currentState = PUSH_EGG;
+      stateTimer   = millis();
+      break;
     }
     break;
   }
@@ -854,8 +927,26 @@ void loop() {
       stateTimer = millis();
       currentDistance = -1;
     }
-    break;
-  }
+
+    case ABORT_RETRY: {
+      // Timbangan kosong - buka gate sebentar lalu tunggu T_ABORT_RETRY_WAIT
+      unsigned long elapsed = millis() - stateTimer;
+      broadcastState("Timbangan kosong - mengulang...", "ABORT_RETRY", "-", "idle");
+
+      // Tutup gate setelah T_ABORT_GATE_REOPEN (500ms)
+      if (elapsed >= T_ABORT_GATE_REOPEN) {
+        servoGate.write(GATE_CLOSED_ANGLE); // Idempotent, aman dipanggil berulang
+      }
+
+      // Setelah T_ABORT_RETRY_WAIT (15 detik), kembali ke siklus awal
+      if (elapsed >= T_ABORT_RETRY_WAIT) {
+        Serial.println("[ABORT] Jeda 15 detik selesai. Siap menerima telur baru.");
+        currentDistance = -1;
+        currentState    = WAIT_EGG_AT_GATE;
+        stateTimer      = millis();
+      }
+      break;
+    }
   }
 
   // Kirim HTTP POST jika ada antrian (lakukan di luar state machine)
