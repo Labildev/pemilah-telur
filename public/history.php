@@ -129,7 +129,8 @@ function buildQueryUri($overrides = []) {
         <nav>
             <a href="index.php">Monitoring</a>
             <a href="history.php" class="active">Riwayat Data</a>
-            <a href="test.php">Uji &amp; Kalibrasi</a>
+            <a href="test.php">Uji & Kalibrasi</a>
+            <a href="demo.php">Demo Mock</a>
         </nav>
     </header>
 
