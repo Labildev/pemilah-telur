@@ -115,6 +115,10 @@ const char *API_KEY = "rahasia123";
 int GAS_BASELINE = 300;   // Default, di-update oleh calibrateGasBaseline() saat setup
 int GAS_DELTA    = 150;   // Selisih dari baseline = "ada gas" (adjustable via NVS/dashboard)
 
+// Baseline gas ambient (dikalibrasi saat boot) & delta sensitivitas
+int GAS_BASELINE = 300;   // Default, di-update oleh calibrateGasBaseline() saat setup
+int GAS_DELTA    = 150;   // Selisih dari baseline = "ada gas" (adjustable via NVS/dashboard)
+
 // ---------------- OBJEK GLOBAL ----------------
 HX711 scale;
 bool scaleEnabled = false;
@@ -793,6 +797,7 @@ void loop() {
       currentState = PUSH_EGG;
       stateTimer   = millis();
       break;
+<<<<<<< HEAD
     }
     break;
   }
@@ -804,6 +809,8 @@ void loop() {
       servoGate.write(GATE_CLOSED_ANGLE);
       currentState = CLOSE_GATE;
       stateTimer = millis();
+=======
+>>>>>>> 4f30178cca7a31db7bede5cd73e507a6c816dfb1
     }
     break;
   }
@@ -926,6 +933,26 @@ void loop() {
       currentState = WAIT_EGG_AT_GATE;
       stateTimer = millis();
       currentDistance = -1;
+    }
+
+    case ABORT_RETRY: {
+      // Timbangan kosong - buka gate sebentar lalu tunggu T_ABORT_RETRY_WAIT
+      unsigned long elapsed = millis() - stateTimer;
+      broadcastState("Timbangan kosong - mengulang...", "ABORT_RETRY", "-", "idle");
+
+      // Tutup gate setelah T_ABORT_GATE_REOPEN (500ms)
+      if (elapsed >= T_ABORT_GATE_REOPEN) {
+        servoGate.write(GATE_CLOSED_ANGLE); // Idempotent, aman dipanggil berulang
+      }
+
+      // Setelah T_ABORT_RETRY_WAIT (15 detik), kembali ke siklus awal
+      if (elapsed >= T_ABORT_RETRY_WAIT) {
+        Serial.println("[ABORT] Jeda 15 detik selesai. Siap menerima telur baru.");
+        currentDistance = -1;
+        currentState    = WAIT_EGG_AT_GATE;
+        stateTimer      = millis();
+      }
+      break;
     }
 
     case ABORT_RETRY: {
