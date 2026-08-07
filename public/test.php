@@ -378,7 +378,7 @@
                 </div>
                 <div style="display:flex;gap:8px;width:100%;align-items:center;margin-bottom:8px">
                     <input type="text" id="inp-backend-url" value=""
-                           placeholder="http://192.168.x.x:8080/api/sort-result.php"
+                           placeholder="http://192.168.x.x/pemilah-telur/api/sort-result.php"
                            style="flex:1;padding:7px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.82rem;font-family:monospace">
                     <button class="btn" style="white-space:nowrap" onclick="saveBackendUrl()">Simpan URL</button>
                 </div>
