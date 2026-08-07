@@ -485,6 +485,7 @@
                     <div class="flow-step" id="step-RETURN_PENDORONG">7. RETURN_PENDORONG (Pendorong ditarik kembali ke posisi awal)</div>
                     <div class="flow-step" id="step-OPEN_SORT_GATE">8. OPEN_SORT_GATE (Flap penampung kategori terbuka)</div>
                     <div class="flow-step" id="step-CLOSE_SORT_GATE">9. CLOSE_SORT_GATE (Flap menutup kembali, siklus selesai)</div>
+                    <div class="flow-step" id="step-ABORT_RETRY" style="border-color: #fca5a5; background: #fff1f2; color: #991b1b;">&#9888; ABORT_RETRY (Timbangan kosong &mdash; buka gate lagi, tunggu 15 detik, ulang siklus)</div>
                 </div>
             </div>
         </section>
@@ -643,6 +644,7 @@
             else if (activeState.includes("Pendorong kembali") || activeState === "RETURN_PENDORONG") stepId = "step-RETURN_PENDORONG";
             else if (activeState.includes("masuk penampungan") || activeState === "OPEN_SORT_GATE") stepId = "step-OPEN_SORT_GATE";
             else if (activeState.includes("tutup kembali") || activeState === "CLOSE_SORT_GATE") stepId = "step-CLOSE_SORT_GATE";
+            else if (activeState === "ABORT_RETRY" || activeState.includes("mengulang")) stepId = "step-ABORT_RETRY";
             
             const activeEl = document.getElementById(stepId);
             if (activeEl) {

@@ -102,13 +102,13 @@ define('ESP32_API_KEY', 'rahasia123'); // API Key untuk ESP32
 
 ### Langkah 5 — Akses Dashboard
 
-Buka browser dan akses salah satu URL berikut:
+Karena project sudah dilengkapi file `.htaccess` di root folder, Anda dapat mengakses dashboard dan halaman lainnya secara langsung tanpa perlu menyertakan folder `public/`:
 
-| Halaman | URL |
-|---|---|
-| **Dashboard Monitoring** | `http://localhost/pemilah-telur-xampp/public/index.php` |
-| **Riwayat Data** | `http://localhost/pemilah-telur-xampp/public/history.php` |
-| **Uji & Kalibrasi** | `http://localhost/pemilah-telur-xampp/public/test.php` |
+| Halaman | URL Utama (Direkomendasikan) | URL Alternatif (Manual) |
+|---|---|---|
+| **Dashboard Monitoring** | `http://localhost/pemilah-telur-xampp/` | `http://localhost/pemilah-telur-xampp/public/index.php` |
+| **Riwayat Data** | `http://localhost/pemilah-telur-xampp/history.php` | `http://localhost/pemilah-telur-xampp/public/history.php` |
+| **Uji & Kalibrasi** | `http://localhost/pemilah-telur-xampp/test.php` | `http://localhost/pemilah-telur-xampp/public/test.php` |
 
 ---
 
@@ -130,7 +130,8 @@ const char* WIFI_SSID     = "NAMA_WIFI_KAMU";
 const char* WIFI_PASSWORD = "PASSWORD_WIFI_KAMU";
 
 // URL untuk XAMPP (ganti IP dengan IP komputer Anda)
-const char* BACKEND_URL = "http://192.168.1.50/pemilah-telur-xampp/public/api/sort-result.php";
+// Catatan: Karena adanya .htaccess, segmen /public/ bisa dihilangkan
+const char* BACKEND_URL = "http://192.168.1.50/pemilah-telur-xampp/api/sort-result.php";
 
 const char* API_KEY = "rahasia123";  // Harus sama dengan di config/database.php
 ```
@@ -141,7 +142,7 @@ Upload firmware ke ESP32, lalu buka **Serial Monitor** (baud 115200) untuk meman
 
 ## 🔌 API Endpoint
 
-### `POST /public/api/sort-result.php`
+### `POST /api/sort-result.php` (Atau `/public/api/sort-result.php`)
 
 Digunakan ESP32 untuk mengirim data hasil sortir.
 
@@ -171,7 +172,7 @@ X-API-Key: rahasia123
 
 **Kategori valid:** `ringan` | `sedang` | `berat` | `busuk`
 
-### `GET /public/api/stats.php`
+### `GET /api/stats.php` (Atau `/public/api/stats.php`)
 
 Digunakan dashboard untuk mengambil statistik real-time (polling tiap 3 detik).
 
@@ -182,7 +183,7 @@ Digunakan dashboard untuk mengambil statistik real-time (polling tiap 3 detik).
 Halaman ini berkomunikasi langsung dengan ESP32 via **WebSocket** (bukan via server PHP).
 
 1. Pastikan ESP32 sudah diupload firmware utama dan terhubung ke WiFi
-2. Buka `http://localhost/pemilah-telur-xampp/public/test.php`
+2. Buka `http://localhost/pemilah-telur-xampp/test.php` (atau `http://localhost/pemilah-telur-xampp/public/test.php`)
 3. Masukkan **IP Address ESP32** (cek di Serial Monitor Arduino IDE)
 4. Klik **Hubungkan**
 5. Gunakan panel yang tersedia untuk:
@@ -213,6 +214,6 @@ Halaman ini berkomunikasi langsung dengan ESP32 via **WebSocket** (bukan via ser
 | **Web server** | Apache dalam container | Apache XAMPP lokal |
 | **Database** | MySQL dalam container | MySQL XAMPP lokal |
 | **Cara jalankan** | `docker compose up -d` | Klik Start di XAMPP Control Panel |
-| **URL akses** | `http://localhost:8080/` | `http://localhost/pemilah-telur-xampp/public/` |
+| **URL akses** | `http://localhost:8080/` | `http://localhost/pemilah-telur-xampp/` (Berkat `.htaccess`) |
 | **Konfigurasi DB** | Via environment variable `.env` | Edit langsung `config/database.php` |
 | **Setup database** | Otomatis dari `schema.sql` | Manual via phpMyAdmin |
