@@ -191,7 +191,7 @@ void broadcastState(String step, String rawStep, String category,
     return;
   lastBroadcast = now;
   
-  if (ws.count() == 0)
+  if (webSocket.connectedClients() == 0)
     return;
 
   StaticJsonDocument<600> doc;
@@ -224,8 +224,8 @@ void broadcastState(String step, String rawStep, String category,
 
   String json;
   serializeJson(doc, json);
-  if (ws.count() > 0)
-    ws.textAll(json);
+  if (webSocket.connectedClients() > 0)
+    webSocket.broadcastTXT(json);
 }
 
 // Helper: simpan semua config servo & threshold ke NVS
@@ -632,7 +632,7 @@ void loop() {
     lastSensorPrint = millis();
     Serial.printf("[SENSOR] Jarak: %ld cm | Berat: %.1f g | Gas: %d | State: %d | WS Client: %u\n",
                   currentDistance, currentWeight, currentGas, (int)currentState,
-                  ws.count());
+                  webSocket.connectedClients());
   }
 
   switch (currentState) {
