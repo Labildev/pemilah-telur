@@ -116,7 +116,7 @@ const char *WIFI_PASSWORD = "12345678";
 // URL backend - disimpan di NVS agar bisa diubah dari dashboard tanpa reflash
 // PERHATIAN: ESP32 tidak bisa menggunakan "localhost". Gunakan IP WiFi komputer
 // Anda! Format: http://<IP_KOMPUTER_ANDA>/pemilah-telur/api/sort-result.php
-char BACKEND_URL[128] = "http://10.41.198.11/pemilah-telur/api/sort-result.php";
+const char *BACKEND_URL = "http://10.41.198.11/pemilah-telur/api/sort-result.php";
 const char *API_KEY = "rahasia123";
 
 // Baseline gas ambient (dikalibrasi saat boot) & delta sensitivitas
@@ -180,75 +180,7 @@ float pendingWeight = 0;
 int pendingGas = 0;
 String pendingCategory = "-";
 
-// ---------------- HALAMAN WEB ----------------
-const char INDEX_HTML[] PROGMEM = R"HTML(
-<!DOCTYPE html>
-<html lang="id">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Egg Sorter Monitor</title>
-<style>
-  body{font-family:Arial,sans-serif;background:#f4f4f4;margin:0;padding:20px;color:#222}
-  h1{font-size:20px;text-align:center;margin-bottom:20px}
-  .card{background:#fff;border-radius:10px;padding:16px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,0.1)}
-  .row{display:flex;justify-content:space-between;margin:6px 0;font-size:15px}
-  .label{color:#666}
-  .value{font-weight:bold}
-  .step{font-size:14px;text-align:center;padding:10px;border-radius:8px;margin-top:8px;background:#eef;color:#334}
-  .cat{font-size:22px;text-align:center;padding:14px;border-radius:8px;margin-top:8px}
-  .ringan{background:#e0ffe4;color:#1a7a2e}
-  .sedang{background:#fff3d6;color:#a67c00}
-  .berat{background:#ffe6d6;color:#a3521e}
-  .busuk{background:#333;color:#fff}
-  .idle{background:#eee;color:#666}
-  .counters{display:flex;gap:8px;text-align:center}
-  .counters div{flex:1;background:#fafafa;padding:10px;border-radius:8px}
-  .counters span{display:block;font-size:20px;font-weight:bold}
-</style>
-</head>
-<body>
-<h1>Egg Sorter - Monitoring</h1>
 
-<div class="card">
-  <div class="row"><span class="label">Jarak (gate)</span><span class="value" id="distance">-- cm</span></div>
-  <div class="row"><span class="label">Berat</span><span class="value" id="weight">-- g</span></div>
-  <div class="row"><span class="label">Nilai gas (MQ-135)</span><span class="value" id="gas">--</span></div>
-  <div class="step" id="step">Menunggu telur</div>
-  <div id="category" class="cat idle">-</div>
-</div>
-
-<div class="card">
-  <div class="counters">
-    <div>Ringan<span id="cRingan">0</span></div>
-    <div>Sedang<span id="cSedang">0</span></div>
-    <div>Berat<span id="cBerat">0</span></div>
-    <div>Busuk<span id="cBusuk">0</span></div>
-  </div>
-</div>
-
-<script>
-let ws = new WebSocket("ws://" + location.host + "/ws");
-ws.onmessage = function(evt){
-  let d = JSON.parse(evt.data);
-  document.getElementById("distance").innerText = d.distance + " cm";
-  document.getElementById("weight").innerText = d.weight.toFixed(1) + " g";
-  document.getElementById("gas").innerText = d.gas;
-  document.getElementById("step").innerText = d.step;
-  document.getElementById("cRingan").innerText = d.cRingan;
-  document.getElementById("cSedang").innerText = d.cSedang;
-  document.getElementById("cBerat").innerText = d.cBerat;
-  document.getElementById("cBusuk").innerText = d.cBusuk;
-
-  let cat = document.getElementById("category");
-  cat.innerText = d.category;
-  cat.className = "cat " + d.categoryClass;
-};
-ws.onclose = function(){ setTimeout(()=>location.reload(), 2000); };
-</script>
-</body>
-</html>
-)HTML";
 
 // ---------------- FUNGSI BANTUAN ----------------
 
@@ -289,7 +221,6 @@ void broadcastState(String step, String rawStep, String category,
   doc["cfg_us_dist"] = EGG_AT_GATE_DISTANCE_CM;
   doc["cfg_w_ringan"] = WEIGHT_RINGAN_MAX;
   doc["cfg_w_sedang"] = WEIGHT_SEDANG_MAX;
-  doc["backend_url"] = BACKEND_URL;
 
   String json;
   serializeJson(doc, json);
@@ -310,7 +241,6 @@ void saveConfigToNVS() {
   preferences.putInt("us_dist", EGG_AT_GATE_DISTANCE_CM);
   preferences.putFloat("w_ringan", WEIGHT_RINGAN_MAX);
   preferences.putFloat("w_sedang", WEIGHT_SEDANG_MAX);
-  preferences.putString("backend_url", BACKEND_URL);
   preferences.end();
   Serial.println("[NVS] Konfigurasi tersimpan.");
 }
@@ -413,19 +343,6 @@ void handleWsMessage(uint8_t *data, size_t len) {
         Serial.print("[WS] Cal.factor baru: ");
         Serial.println(CALIBRATION_FACTOR);
       }
-    }
-  } else if (action == "save_backend_url") {
-    // Update URL backend tanpa reflash
-    // payload: {action:"save_backend_url",
-    // url:"http://192.168.x.x:8080/api/sort-result.php"}
-    String url = cmd["url"] | "";
-    if (url.length() > 0 && url.length() < 128) {
-      url.toCharArray(BACKEND_URL, sizeof(BACKEND_URL));
-      preferences.begin("egg-sorter", false);
-      preferences.putString("backend_url", BACKEND_URL);
-      preferences.end();
-      Serial.print("[WS] Backend URL baru: ");
-      Serial.println(BACKEND_URL);
     }
   }
 }
@@ -629,9 +546,6 @@ void setup() {
       preferences.getInt("us_dist", EGG_AT_GATE_DISTANCE_CM);
   WEIGHT_RINGAN_MAX = preferences.getFloat("w_ringan", WEIGHT_RINGAN_MAX);
   WEIGHT_SEDANG_MAX = preferences.getFloat("w_sedang", WEIGHT_SEDANG_MAX);
-  // Load backend URL - fallback ke nilai default jika belum pernah disimpan
-  String savedUrl = preferences.getString("backend_url", String(BACKEND_URL));
-  savedUrl.toCharArray(BACKEND_URL, sizeof(BACKEND_URL));
   preferences.end();
   Serial.printf("[NVS] Cal.factor=%.2f | Gas.delta=%d | US.dist=%d\n",
                 CALIBRATION_FACTOR, GAS_DELTA, EGG_AT_GATE_DISTANCE_CM);
@@ -702,10 +616,6 @@ void setup() {
     }
   });
   server.addHandler(&ws);
-
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send_P(200, "text/html", INDEX_HTML);
-  });
 
   server.begin();
   Serial.println("Web server dimulai.");

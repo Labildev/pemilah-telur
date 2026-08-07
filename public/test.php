@@ -371,23 +371,7 @@
                 </div>
             </div>
 
-            <!-- Backend URL Config -->
-            <div class="card">
-                <h2 class="section-title">🌐 URL Backend Server</h2>
-                <div style="font-size:0.8rem;color:var(--color-text-muted);margin-bottom:12px">
-                    Ubah jika IP server berubah — tersimpan di NVS ESP32, tidak perlu reflash.
-                </div>
-                <div style="display:flex;gap:8px;width:100%;align-items:center;margin-bottom:8px">
-                    <input type="text" id="inp-backend-url" value=""
-                           placeholder="http://10.41.198.11/pemilah-telur/api/sort-result.php"
-                           style="flex:1;padding:7px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.82rem;font-family:monospace">
-                    <button class="btn" style="white-space:nowrap" onclick="saveBackendUrl()">Simpan URL</button>
-                </div>
-                <div style="font-size:0.72rem;color:#64748b">
-                    URL aktif di ESP32: <span id="live-backend-url" style="font-family:monospace;color:#0f766e">--</span>
-                </div>
-            </div>
-        </section><!-- end kolom kiri -->
+            </section><!-- end kolom kiri -->
 
         <!-- Kolom Kanan: Manual Override Actuators & State Visualizer -->
         <section>
