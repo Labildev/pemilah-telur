@@ -1,0 +1,385 @@
+/* public/assets/css/style.css */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Lora:ital,wght@0,500;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+:root {
+    --font-title: 'Lora', Georgia, serif;
+    --font-body: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    --font-data: 'JetBrains Mono', monospace;
+
+    /* Warna Utama & Netral */
+    --color-bg: #f1f5f9;
+    --color-card-bg: #ffffff;
+    --color-text-main: #0f172a;
+    --color-text-muted: #475569;
+    --color-border: #cbd5e1;
+    --color-border-light: #e2e8f0;
+    
+    /* Warna Kategori Khas */
+    --color-ringan: #16a34a;
+    --color-ringan-bg: #dcfce7;
+    --color-ringan-border: #86efac;
+
+    --color-sedang: #ca8a04;
+    --color-sedang-bg: #fef9c3;
+    --color-sedang-border: #fde047;
+
+    --color-berat: #ea580c;
+    --color-berat-bg: #ffedd5;
+    --color-berat-border: #fed7aa;
+
+    --color-busuk: #f8fafc;
+    --color-busuk-bg: #1e293b;
+    --color-busuk-border: #0f172a;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--color-bg);
+    color: var(--color-text-main);
+    font-family: var(--font-body);
+    line-height: 1.5;
+    padding: 24px 16px;
+}
+
+header {
+    max-width: 1200px;
+    margin: 0 auto 20px auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    border-bottom: 2px solid var(--color-text-main);
+    padding-bottom: 12px;
+}
+
+h1 {
+    font-family: var(--font-title);
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+.subtitle {
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+}
+
+nav {
+    display: flex;
+    gap: 12px;
+}
+
+nav a {
+    text-decoration: none;
+    color: var(--color-text-muted);
+    font-weight: 600;
+    font-size: 0.9rem;
+    padding: 4px 8px;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+}
+
+nav a.active, nav a:hover {
+    color: var(--color-text-main);
+    border-bottom: 2px solid var(--color-text-main);
+}
+
+main {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 20px;
+}
+
+@media (max-width: 900px) {
+    main {
+        grid-template-columns: 1fr;
+    }
+}
+
+.section-title {
+    font-family: var(--font-title);
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 6px;
+    color: var(--color-text-main);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Card layout */
+.card {
+    background-color: var(--color-card-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+/* Status Indicator */
+.connection-status {
+    font-size: 0.75rem;
+    font-family: var(--font-data);
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background-color: #f1f5f9;
+    color: #64748b;
+    border: 1px solid #cbd5e1;
+}
+
+.connection-status.active {
+    background-color: #d1fae5;
+    color: #065f46;
+    border-color: #a7f3d0;
+}
+
+/* Statistik Ringkasan */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+@media (max-width: 600px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.stat-box {
+    border: 1px solid var(--color-border-light);
+    border-radius: 4px;
+    padding: 12px;
+    text-align: left;
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-box::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+}
+
+.stat-box.ringan-box::before { background-color: var(--color-ringan); }
+.stat-box.sedang-box::before { background-color: var(--color-sedang); }
+.stat-box.berat-box::before { background-color: var(--color-berat); }
+.stat-box.busuk-box::before { background-color: var(--color-busuk-bg); }
+
+.stat-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.stat-numbers {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-top: 8px;
+}
+
+.stat-val-today {
+    font-family: var(--font-data);
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--color-text-main);
+}
+
+.stat-val-total {
+    font-family: var(--font-data);
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+}
+
+/* Kategori Tag */
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-family: var(--font-data);
+    border: 1px solid transparent;
+}
+
+.badge.ringan {
+    background-color: var(--color-ringan-bg);
+    color: var(--color-ringan);
+    border-color: var(--color-ringan-border);
+}
+
+.badge.sedang {
+    background-color: var(--color-sedang-bg);
+    color: var(--color-sedang);
+    border-color: var(--color-sedang-border);
+}
+
+.badge.berat {
+    background-color: var(--color-berat-bg);
+    color: var(--color-berat);
+    border-color: var(--color-berat-border);
+}
+
+.badge.busuk {
+    background-color: var(--color-busuk-bg);
+    color: var(--color-busuk);
+    border-color: var(--color-busuk-border);
+}
+
+/* Tabel Industrial */
+.table-container {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+    text-align: left;
+}
+
+th {
+    background-color: #f8fafc;
+    color: var(--color-text-muted);
+    font-weight: 600;
+    padding: 8px 12px;
+    border-bottom: 2px solid var(--color-border);
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+}
+
+td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--color-border-light);
+}
+
+tr:hover td {
+    background-color: #f8fafc;
+}
+
+.mono {
+    font-family: var(--font-data);
+}
+
+/* Form Filter & Riwayat */
+.filter-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 20px;
+    align-items: flex-end;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.form-group label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+}
+
+.form-control {
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+    padding: 6px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background-color: #ffffff;
+}
+
+.btn {
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+    font-weight: 600;
+    padding: 6px 16px;
+    border: 1px solid var(--color-text-main);
+    border-radius: 4px;
+    background-color: var(--color-text-main);
+    color: #ffffff;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn:hover {
+    background-color: var(--color-text-muted);
+    border-color: var(--color-text-muted);
+}
+
+.btn-secondary {
+    background-color: transparent;
+    color: var(--color-text-main);
+}
+
+.btn-secondary:hover {
+    background-color: #e2e8f0;
+    color: var(--color-text-main);
+}
+
+/* Pagination */
+.pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 16px;
+}
+
+.pagination-info {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+}
+
+.pagination-buttons {
+    display: flex;
+    gap: 6px;
+}
+
+.pagination-buttons a {
+    text-decoration: none;
+    font-size: 0.8rem;
+    padding: 4px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    color: var(--color-text-muted);
+}
+
+.pagination-buttons a.active {
+    background-color: var(--color-text-main);
+    color: #ffffff;
+    border-color: var(--color-text-main);
+}
+
+/* Real-time blink animation */
+.blink-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: #059669;
+    margin-right: 6px;
+    animation: blinker 1.5s linear infinite;
+}
+
+@keyframes blinker {
+    50% { opacity: 0.3; }
+}
