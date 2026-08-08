@@ -1,6 +1,13 @@
+<?php
+$auto_ip = "192.168.4.1";
+if(file_exists(__DIR__ . '/../esp32_ip.txt')) {
+    $file_ip = trim(file_get_contents(__DIR__ . '/../esp32_ip.txt'));
+    if(!empty($file_ip)) {
+        $auto_ip = $file_ip;
+    }
+}
+?>
 <!DOCTYPE html>
-<!-- public/test.php -->
-<html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -227,7 +234,7 @@
             <!-- Konfigurasi Koneksi ESP32 -->
             <div class="ip-bar">
                 <label for="esp-ip">IP Address ESP32:</label>
-                <input type="text" id="esp-ip" class="ip-input" value="192.168.4.1" placeholder="Contoh: 192.168.1.15">
+                <input type="text" id="esp-ip" class="ip-input" value="<?php echo $auto_ip; ?>" placeholder="Contoh: 192.168.1.15">
                 <button id="connect-btn" class="btn" onclick="toggleConnection()" style="padding: 4px 12px; font-size: 0.8rem;">Hubungkan</button>
                 <span class="connection-status" id="ws-status">Terputus</span>
             </div>

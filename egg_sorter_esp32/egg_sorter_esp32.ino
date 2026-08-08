@@ -531,6 +531,22 @@ void setup() {
     Serial.println("\nTerhubung ke Wi-Fi lokal!");
     Serial.print("IP Address: ");
     Serial.println(WiFi.localIP());
+    
+    // Ping laptop to register IP automatically
+    HTTPClient http;
+    String backendStr = String(BACKEND_URL);
+    int apiIndex = backendStr.indexOf("/api/");
+    if(apiIndex > 0) {
+      String regUrl = backendStr.substring(0, apiIndex) + "/api/register_ip.php?ip=" + WiFi.localIP().toString();
+      http.begin(regUrl);
+      int code = http.GET();
+      if(code > 0) {
+        Serial.println("[WIFI] Sukses register IP otomatis ke Laptop!");
+      } else {
+        Serial.printf("[WIFI] Gagal register IP otomatis (Kode: %d)\n", code);
+      }
+      http.end();
+    }
   } else {
     Serial.println("\nGagal terhubung ke Wi-Fi lokal. Mengaktifkan Mode AP...");
     WiFi.softAP(AP_SSID, AP_PASSWORD);

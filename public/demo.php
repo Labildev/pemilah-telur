@@ -1,6 +1,13 @@
 <?php
-// Tentukan IP ESP32 secara statis sesuai permintaan user
-$esp32_ip = "192.168.4.1"; // Default IP AP ESP32
+// IP Default AP ESP32
+$esp32_ip = "192.168.4.1"; 
+// Baca otomatis IP yang didaftarkan oleh ESP32
+if(file_exists(__DIR__ . '/../esp32_ip.txt')) {
+    $file_ip = trim(file_get_contents(__DIR__ . '/../esp32_ip.txt'));
+    if(!empty($file_ip)) {
+        $esp32_ip = $file_ip;
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -143,11 +150,6 @@ $esp32_ip = "192.168.4.1"; // Default IP AP ESP32
 <div class="container">
     <h1>Halaman Demo & Test</h1>
     
-    <div style="display:flex; justify-content:center; gap:10px; margin-bottom:15px;">
-        <input type="text" id="espIp" value="<?php echo $esp32_ip; ?>" placeholder="IP ESP32" style="text-align:center; padding:5px;">
-        <button onclick="saveIpAndConnect()" style="padding:5px 15px;">Connect</button>
-    </div>
-
     <div id="statusBadge" class="status disconnected">MENGHUBUNGKAN...</div>
 
     <!-- SENSOR INFO -->
@@ -229,8 +231,6 @@ $esp32_ip = "192.168.4.1"; // Default IP AP ESP32
 
     function connectWS() {
         if (ws) ws.close();
-        const ip = document.getElementById('espIp').value.trim();
-        if(!ip) return;
         
         const badge = document.getElementById('statusBadge');
         badge.textContent = "MENGHUBUNGKAN...";
@@ -241,7 +241,7 @@ $esp32_ip = "192.168.4.1"; // Default IP AP ESP32
         
         ws.onopen = () => {
             isConnected = true;
-            badge.textContent = "TERHUBUNG KE ESP32";
+            badge.textContent = "TERHUBUNG KE ESP32 (" + ip + ")";
             badge.className = "status connected";
             badge.style.background = "";
         };
@@ -265,23 +265,6 @@ $esp32_ip = "192.168.4.1"; // Default IP AP ESP32
             } catch (err) {}
         };
     }
-
-    function saveIpAndConnect() {
-        const ip = document.getElementById('espIp').value.trim();
-        if(ip) {
-            localStorage.setItem('esp_demo_ip', ip);
-            connectWS();
-        }
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-        const savedIP = localStorage.getItem('esp_demo_ip');
-        if(savedIP) {
-            document.getElementById('espIp').value = savedIP;
-        }
-        initUI();
-        connectWS();
-    });
 
     function sendCmd(action, params = {}) {
         if (!isConnected) {
@@ -321,6 +304,9 @@ $esp32_ip = "192.168.4.1"; // Default IP AP ESP32
             sendCmd('servo', { name: name, value: 0 });
         }, 1000);
     }
+
+    initUI();
+    connectWS();
 </script>
 </body>
 </html>
